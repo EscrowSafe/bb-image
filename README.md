@@ -1,5 +1,11 @@
 # bb-image
 
+## EscrowSafe fork
+
+This is EscrowSafe's fork of [fgrehm/bb-image](https://github.com/fgrehm/bb-image), published as `ghcr.io/escrowsafe/bb` so the image EscrowSafe's agent containers run on is published from the org. Upstream merges in as usual.
+
+Fork releases are tagged `v<version>-escrowsafe.<n>` (for example `v0.12.0-escrowsafe.1`, published as `img-0.12.0-escrowsafe.1-slim`), because upstream keeps releasing with plain `v<version>` tags: a plain tag here would collide with upstream's next release when upstream is merged in, and `img-<version>` would name different images in the two registries. `publish.yml` strips the suffix before deciding whether a tag is a prerelease, so a suffixed tag still moves `slim`, `latest` and the bb-version aliases. Once upstream stops publishing its own image, the suffix can go and fork releases can use plain tags.
+
 Container and VM images for running [bb](https://getbb.app) with development tools and persistent state. Published at `ghcr.io/fgrehm/bb`, supported on **Linux amd64 (`linux/amd64`)** for every flavor and **Linux arm64 (`linux/arm64`)** for the container flavors (`full`, `slim`, `worker`).
 
 ## Quick start

@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.12.0-escrowsafe.1] - 2026-11-09
+
+Carries bb 0.49.0. First release of the EscrowSafe fork, published as `ghcr.io/escrowsafe/bb`.
+
+### Changed
+
+- Update the bundled bb app to 0.49.0.
+- Publish to `ghcr.io/escrowsafe/bb`: the image name is hardcoded lowercase, since the org's owner name is `EscrowSafe`.
+- Tag fork releases `v<version>-escrowsafe.<n>`, and treat that suffix as a stable release rather than a prerelease. See "EscrowSafe fork" in the README.
+
 ## [0.11.0] - 2026-11-05
 
 Carries bb 0.48.1.

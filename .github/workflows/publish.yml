@@ -87,6 +87,13 @@ jobs:
         run: |
           set -euo pipefail
           read_arg() { sed -n "s/^ARG $1=\(.*\)/\1/p" container/Containerfile.foundation; }
+          # EscrowSafe fork: release tags carry an `-escrowsafe.N` suffix so they
+          # never collide with upstream's tags when upstream is merged in. That
+          # suffix is not a prerelease marker, so strip it before the hyphen test.
+          stable_ref() {
+            local ref="${GITHUB_REF_NAME%-escrowsafe.*}"
+            if [[ "$ref" == *-* ]]; then echo false; else echo true; fi
+          }
 
           bb="$(read_arg BB_VERSION)"
           if [ -z "$bb" ]; then
@@ -98,6 +105,7 @@ jobs:
             echo "BB_VERSION=$bb"
             echo "BB_MINOR=${bb%.*}"
             echo "IMAGE_VERSION=${GITHUB_REF_NAME#v}"
+            echo "STABLE=$(stable_ref)"
             echo "BB_NODE_VERSION=$(read_arg BB_NODE_VERSION)"
             echo "MISE_VERSION=$(read_arg MISE_VERSION)"
             echo "PLAYWRIGHT_VERSION=$(read_arg PLAYWRIGHT_VERSION)"
@@ -127,10 +135,10 @@ jobs:
             # bb aliases, latest, and the bare slim alias: stable tags only. A
             # prerelease must not move the aliases people pin, or an rc would
             # silently become "latest".
-            type=raw,value=${{ env.BB_VERSION }}${{ matrix.suffix }},enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
-            type=raw,value=${{ env.BB_MINOR }}${{ matrix.suffix }},enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && matrix.flavor == 'full' && !contains(github.ref_name, '-') }}
-            type=raw,value=slim,enable=${{ github.ref_type == 'tag' && matrix.flavor == 'slim' && !contains(github.ref_name, '-') }}
+            type=raw,value=${{ env.BB_VERSION }}${{ matrix.suffix }},enable=${{ github.ref_type == 'tag' && env.STABLE == 'true' }}
+            type=raw,value=${{ env.BB_MINOR }}${{ matrix.suffix }},enable=${{ github.ref_type == 'tag' && env.STABLE == 'true' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && matrix.flavor == 'full' && env.STABLE == 'true' }}
+            type=raw,value=slim,enable=${{ github.ref_type == 'tag' && matrix.flavor == 'slim' && env.STABLE == 'true' }}
 
       # Generate targets from the same graph as the matrix.
       - name: Generate Bake file
@@ -378,7 +386,9 @@ jobs:
           # metadata-action rules above. A stable tag also feeds the aliases;
           # a prerelease gets an image pin and variant pins only.
           stable=true
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then stable=false; fi
+          # The fork's `-escrowsafe.N` suffix is not a prerelease marker.
+          ref="${GITHUB_REF_NAME%-escrowsafe.*}"
+          if [[ "$ref" == *-* ]]; then stable=false; fi
           {
             while IFS=$'\t' read -r flavor parent published suffix smolvm boot; do
               [[ "$flavor" =~ ^#|^$ ]] && continue
@@ -417,7 +427,7 @@ jobs:
             exit 0
           fi
 
-          prev="$(git tag --list 'v*' --sort=-v:refname | grep -vx "$tag" | grep -v -- '-' | head -n1 || true)"
+          prev="$(git tag --list 'v*' --sort=-v:refname | grep -vx "$tag" | awk '{ v = $0; sub(/-escrowsafe\.[0-9]+$/, "", v) } v !~ /-/' | head -n1 || true)"
           prev_bb=""
           if [ -n "$prev" ]; then
             # Earlier releases used one container/Containerfile, and the oldest
@@ -444,7 +454,8 @@ jobs:
             while IFS= read -r t; do printf '  %s\n' "$t"; done <<<"$TAGS"
           } > /tmp/notes.txt
 
-          if [ "${IMAGE_VERSION}" != "${IMAGE_VERSION%-*}" ]; then
+          base_version="${IMAGE_VERSION%-escrowsafe.*}"
+          if [ "${base_version}" != "${base_version%-*}" ]; then
             gh release create "$tag" --prerelease \
               --title "${tag} (bb ${BB_VERSION})" --notes-file /tmp/notes.txt
           else
